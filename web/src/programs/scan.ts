@@ -1,5 +1,5 @@
 import type {Program} from "ollieos/src/types";
-import {call_capability, require_privileged_capability} from "./platform_helpers";
+import {call_privileged_capability, privileged_capability_kernel_funcs} from "./platform_helpers";
 
 interface ScanResult {
     cancelled: boolean;
@@ -12,17 +12,14 @@ export default {
     description: "Scans a QR code or barcode with the camera and prints its contents.",
     usage_suffix: "",
     arg_descriptions: {},
-    compat: "2.0.0",
+    compat: "3.0.0",
     completion: async () => [],
     main: async (data) => {
         const {kernel, term} = data;
 
-        const platform = await require_privileged_capability(kernel, term, "scan_code", "Use the camera to scan a code");
-        if (!platform) {
-            return 1;
-        }
+        const privilege_reason = "Use the camera to scan a code";
 
-        const result = await call_capability<ScanResult>(platform, term, "scan_code");
+        const result = await call_privileged_capability<ScanResult>(kernel, term, "scan_code", privilege_reason);
         if (!result) {
             return 1;
         }
@@ -32,7 +29,9 @@ export default {
             return 1;
         }
 
-        term.writeln(result.text);
+        term.writeln(result.text ?? "");
         return 0;
     }
-} as Program;
+} as Program<{kernel_funcs: typeof kernel_funcs}>;
+
+export const kernel_funcs = privileged_capability_kernel_funcs(["scan_code"]);

@@ -2,13 +2,14 @@ import type {Program} from "ollieos/src/types";
 import type {UserspaceOtherProcessContext} from "ollieos/src/kernel/processes";
 import type {UserspaceTerminal} from "ollieos/src/kernel/term_ctl";
 import type {UserspacePlatformAPI} from "ollieos/src/kernel/platform";
+import type {Remote} from "ollieos/src/kernel/rpc";
 import {ANSI, NEWLINE} from "ollieos/src/lib/ansi";
 import {describe_error} from "./platform_helpers";
 
 export const IOS_PRIVILEGE_AGENT_NAME = "ios_privilege_agent";
 
 interface PrivilegeRequestMessage {
-    process: UserspaceOtherProcessContext;
+    process: Remote<UserspaceOtherProcessContext>;
     reason: string;
 }
 
@@ -18,14 +19,14 @@ interface AuthenticationResult {
 }
 
 // same prompt as the default agent, used when face id / passcode isn't available
-const ask_with_keypress = async (term: UserspaceTerminal, pid: number): Promise<boolean> => {
+const ask_with_keypress = async (term: Remote<UserspaceTerminal>, pid: number): Promise<boolean> => {
     term.writeln(`${NEWLINE}Do you wish to grant elevated privileges to PID ${pid}? (y/n)${ANSI.STYLE.reset_all}${ANSI.CURSOR.invisible}`);
     const event = await term.wait_for_keypress();
     term.write(ANSI.CURSOR.visible);
     return event.key.toLowerCase() === "y";
 };
 
-const ask_with_authentication = async (platform: UserspacePlatformAPI, term: UserspaceTerminal, process: UserspaceOtherProcessContext, reason: string): Promise<boolean> => {
+const ask_with_authentication = async (platform: Remote<UserspacePlatformAPI>, term: Remote<UserspaceTerminal>, process: Remote<UserspaceOtherProcessContext>, reason: string): Promise<boolean> => {
     term.writeln(`${NEWLINE}Confirm with Face ID, Touch ID or your passcode to grant elevated privileges to PID ${process.pid}.${ANSI.STYLE.reset_all}`);
 
     try {
@@ -49,7 +50,7 @@ export default {
     usage_suffix: "",
     arg_descriptions: {},
     hide_from_help: true,
-    compat: "2.0.0",
+    compat: "3.0.0",
     main: async (data) => {
         const {kernel, term, args, process: agent_process} = data;
 
@@ -70,7 +71,7 @@ export default {
 
         // retry until we can listen to the channel (may be some delay between process start and channel assignment)
         while (!listening && retries < 20) {
-            listening = ipc.channel_listen(channel_id, async (msg) => {
+            listening = await ipc.channel_listen(channel_id, async (msg) => {
                 if (handling_request) {
                     return;
                 }
@@ -91,7 +92,7 @@ export default {
                 term.writeln("Granting this request will allow the process full access to the kernel, which may compromise system security and stability.");
                 term.writeln("It may also be able to temporarily share this access with other running processes.");
 
-                const granted = can_authenticate
+                const granted = can_authenticate && platform
                     ? await ask_with_authentication(platform, term, process, reason)
                     : await ask_with_keypress(term, process.pid);
 

@@ -1,5 +1,5 @@
 import type {Program} from "ollieos/src/types";
-import {call_capability, require_privileged_capability} from "./platform_helpers";
+import {call_privileged_capability, privileged_capability_kernel_funcs} from "./platform_helpers";
 
 interface LocationResult {
     latitude: number;
@@ -13,17 +13,14 @@ export default {
     description: "Shows your current location.",
     usage_suffix: "",
     arg_descriptions: {},
-    compat: "2.0.0",
+    compat: "3.0.0",
     completion: async () => [],
     main: async (data) => {
         const {kernel, term} = data;
 
-        const platform = await require_privileged_capability(kernel, term, "location", "Read your location");
-        if (!platform) {
-            return 1;
-        }
+        const privilege_reason = "Read your location";
 
-        const location = await call_capability<LocationResult>(platform, term, "location");
+        const location = await call_privileged_capability<LocationResult>(kernel, term, "location", privilege_reason);
         if (!location) {
             return 1;
         }
@@ -33,4 +30,6 @@ export default {
         term.writeln(`https://www.openstreetmap.org/?mlat=${location.latitude}&mlon=${location.longitude}#map=16/${location.latitude}/${location.longitude}`);
         return 0;
     }
-} as Program;
+} as Program<{kernel_funcs: typeof kernel_funcs}>;
+
+export const kernel_funcs = privileged_capability_kernel_funcs(["location"]);

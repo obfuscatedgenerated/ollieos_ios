@@ -1,7 +1,8 @@
 import type {Program} from "ollieos/src/types";
 import type {UserspaceFileSystem} from "ollieos/src/kernel/filesystem";
+import type {Remote} from "ollieos/src/kernel/rpc";
 import {ANSI} from "ollieos/src/lib/ansi";
-import {base64_to_bytes, call_capability, require_privileged_capability, write_error} from "./platform_helpers";
+import {base64_to_bytes, call_privileged_capability, privileged_capability_kernel_funcs, write_error} from "./platform_helpers";
 
 interface PickedFile {
     name: string;
@@ -15,7 +16,7 @@ interface PhotoResult {
 }
 
 // avoids overwriting: photo.jpg -> photo (1).jpg -> photo (2).jpg
-const find_free_path = async (fs: UserspaceFileSystem, directory: string, file_name: string): Promise<string> => {
+const find_free_path = async (fs: Remote<UserspaceFileSystem>, directory: string, file_name: string): Promise<string> => {
     const extension_index = file_name.lastIndexOf(".");
     const base_name = extension_index > 0 ? file_name.slice(0, extension_index) : file_name;
     const extension = extension_index > 0 ? file_name.slice(extension_index) : "";
@@ -40,7 +41,7 @@ export default {
             "directory": "Where to save the imported files. Defaults to the current directory."
         }
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     completion: async () => [],
     main: async (data) => {
         const {kernel, term, args} = data;
@@ -66,20 +67,17 @@ export default {
         }
 
         const capability_name = pick_photo ? "pick_photo" : "pick_file";
-        const platform = await require_privileged_capability(kernel, term, capability_name, pick_photo ? "Import a photo" : "Import files from the Files app");
-        if (!platform) {
-            return 1;
-        }
+        const privilege_reason = pick_photo ? "Import a photo" : "Import files from the Files app";
 
         let picked_files: PickedFile[];
         if (pick_photo) {
-            const photo = await call_capability<PhotoResult>(platform, term, "pick_photo");
+            const photo = await call_privileged_capability<PhotoResult>(kernel, term, "pick_photo", privilege_reason);
             if (!photo) {
                 return 1;
             }
-            picked_files = photo.cancelled ? [] : [{name: photo.name, data_base64: photo.data_base64}];
+            picked_files = photo.cancelled || photo.name === undefined || photo.data_base64 === undefined ? [] : [{name: photo.name, data_base64: photo.data_base64}];
         } else {
-            const result = await call_capability<{ files: PickedFile[] }>(platform, term, "pick_file", {multiple});
+            const result = await call_privileged_capability<{ files: PickedFile[] }>(kernel, term, "pick_file", privilege_reason, {multiple});
             if (!result) {
                 return 1;
             }
@@ -99,4 +97,6 @@ export default {
 
         return 0;
     }
-} as Program;
+} as Program<{kernel_funcs: typeof kernel_funcs}>;
+
+export const kernel_funcs = privileged_capability_kernel_funcs(["pick_photo", "pick_file"]);

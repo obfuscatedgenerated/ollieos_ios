@@ -1,5 +1,5 @@
 import type {Program} from "ollieos/src/types";
-import {call_capability, require_privileged_capability, write_error} from "./platform_helpers";
+import {call_privileged_capability, privileged_capability_kernel_funcs, write_error} from "./platform_helpers";
 
 const ACTIONS = ["get", "set", "delete"];
 
@@ -14,7 +14,7 @@ export default {
             "delete": "Remove a key."
         }
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     completion: async () => ACTIONS,
     main: async (data) => {
         const {kernel, term, args} = data;
@@ -26,13 +26,10 @@ export default {
         }
 
         const capability_name = `keychain_${action}`;
-        const platform = await require_privileged_capability(kernel, term, capability_name, `Access the keychain (${action} "${key}")`);
-        if (!platform) {
-            return 1;
-        }
+        const privilege_reason = `Access the keychain (${action} "${key}")`;
 
         if (action === "get") {
-            const result = await call_capability<{ value: string | null }>(platform, term, capability_name, {key});
+            const result = await call_privileged_capability<{ value: string | null }>(kernel, term, capability_name, privilege_reason, {key});
             if (!result) {
                 return 1;
             }
@@ -45,10 +42,10 @@ export default {
         }
 
         if (action === "set") {
-            return await call_capability(platform, term, capability_name, {key, value: value_parts.join(" ")}) ? 0 : 1;
+            return await call_privileged_capability(kernel, term, capability_name, privilege_reason, {key, value: value_parts.join(" ")}) ? 0 : 1;
         }
 
-        const result = await call_capability<{ deleted: boolean }>(platform, term, capability_name, {key});
+        const result = await call_privileged_capability<{ deleted: boolean }>(kernel, term, capability_name, privilege_reason, {key});
         if (!result) {
             return 1;
         }
@@ -58,4 +55,6 @@ export default {
         }
         return 0;
     }
-} as Program;
+} as Program<{kernel_funcs: typeof kernel_funcs}>;
+
+export const kernel_funcs = privileged_capability_kernel_funcs(["keychain_get", "keychain_set", "keychain_delete"]);

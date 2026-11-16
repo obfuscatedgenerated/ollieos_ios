@@ -1,5 +1,5 @@
 import type {Program} from "ollieos/src/types";
-import {call_capability, require_capability, require_privileged_capability} from "./platform_helpers";
+import {call_capability, call_privileged_capability, privileged_capability_kernel_funcs, require_capability} from "./platform_helpers";
 
 export default {
     name: "clip",
@@ -10,7 +10,7 @@ export default {
             "text": "Text to copy. If omitted, the clipboard is printed (needs privileges)."
         }
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     completion: async () => [],
     main: async (data) => {
         const {kernel, term, args} = data;
@@ -24,12 +24,9 @@ export default {
             return await call_capability(platform, term, "clipboard_write", {text: args.join(" ")}) ? 0 : 1;
         }
 
-        const platform = await require_privileged_capability(kernel, term, "clipboard_read", "Read the clipboard");
-        if (!platform) {
-            return 1;
-        }
+        const privilege_reason = "Read the clipboard";
 
-        const clipboard = await call_capability<{ text: string | null }>(platform, term, "clipboard_read");
+        const clipboard = await call_privileged_capability<{ text: string | null }>(kernel, term, "clipboard_read", privilege_reason);
         if (!clipboard) {
             return 1;
         }
@@ -39,4 +36,6 @@ export default {
         }
         return 0;
     }
-} as Program;
+} as Program<{kernel_funcs: typeof kernel_funcs}>;
+
+export const kernel_funcs = privileged_capability_kernel_funcs(["clipboard_read"]);

@@ -64,6 +64,11 @@ export class IOSPlatformAPI extends AbstractPlatformAPI {
         return this.#capabilities.map(capability => ({...capability}));
     }
 
+    protected async _open_url(url: URL): Promise<void> {
+        // the app's ui delegate opens anything outside the bundled site externally (http(s) in safari, anything else with its app)
+        window.open(url.toString(), "_blank", "noopener");
+    }
+
     protected async _call_internal(capability_name: string, args: unknown): Promise<unknown> {
         return this.#post_to_native({
             token: this.#token,

@@ -10,7 +10,7 @@ export default {
             "level": "Brightness from 0 to 100. If omitted, the current brightness is shown."
         }
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     completion: async () => [],
     main: async (data) => {
         const {kernel, term, args} = data;

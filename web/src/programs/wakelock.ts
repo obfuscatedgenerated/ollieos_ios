@@ -10,7 +10,7 @@ export default {
             "on/off": "Enable or disable the wake lock. If omitted, the current state is shown."
         }
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     completion: async () => ["on", "off"],
     main: async (data) => {
         const {kernel, term, args} = data;

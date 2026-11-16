@@ -2,7 +2,7 @@
 // ios_loader.ts, which builds the kernel itself (like ollieos_node does)
 import "@xterm/xterm/css/xterm.css";
 
-const boot_screen = document.getElementById("boot_screen");
+const boot_screen = document.getElementById("boot_screen")!;
 
 // insert boot loader bars depending on screen size (each bar should take 1/15th of the loader's width, ignoring margins)
 const loader = document.getElementById("boot_loader") as HTMLDivElement;

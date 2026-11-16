@@ -63,7 +63,7 @@ for page in index.html 404.html privacy.html LICENSE; do
 done
 cp -r "$UPSTREAM_DIR/public" "$UPSTREAM_DIR/fsedit" "$UPSTREAM_DIR/recover_fs" "$WWW_STAGING_DIR/"
 
-# replace upstream's scripts with the app's own build (main entry is ours, fsedit is upstream's)
+# replace upstream's scripts with the app's own build (main entry is ours, fsedit and the isothread worker are upstream's)
 rm -rf "$WWW_STAGING_DIR/public/script"
 node "$UPSTREAM_DIR/node_modules/webpack-cli/bin/cli.js" \
     --config "$SCRIPT_DIR/web/webpack.config.js" \

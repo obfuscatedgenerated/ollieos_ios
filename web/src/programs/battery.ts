@@ -13,7 +13,7 @@ export default {
     description: "Shows the battery level and charging state.",
     usage_suffix: "",
     arg_descriptions: {},
-    compat: "2.0.0",
+    compat: "3.0.0",
     completion: async () => [],
     main: async (data) => {
         const {kernel, term} = data;

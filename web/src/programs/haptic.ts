@@ -12,7 +12,7 @@ export default {
             "style": `One of ${HAPTIC_STYLES.join(", ")}. Defaults to medium.`
         }
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     completion: async () => HAPTIC_STYLES,
     main: async (data) => {
         const {kernel, term, args} = data;

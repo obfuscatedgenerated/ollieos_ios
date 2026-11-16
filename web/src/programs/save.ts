@@ -1,5 +1,5 @@
 import type {Program} from "ollieos/src/types";
-import {bytes_to_base64, call_capability, file_name_from_path, require_privileged_capability, write_error} from "./platform_helpers";
+import {bytes_to_base64, call_privileged_capability, file_name_from_path, privileged_capability_kernel_funcs, write_error} from "./platform_helpers";
 
 export default {
     name: "save",
@@ -10,7 +10,7 @@ export default {
             "file": "The file to save."
         }
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     completion: async () => [],
     main: async (data) => {
         const {kernel, term, args} = data;
@@ -27,13 +27,10 @@ export default {
             return 1;
         }
 
-        const platform = await require_privileged_capability(kernel, term, "export_file", "Save a file to the Files app");
-        if (!platform) {
-            return 1;
-        }
+        const privilege_reason = "Save a file to the Files app";
 
         const file_bytes = await fs.read_file(file_path, true) as Uint8Array;
-        const result = await call_capability<{ exported: boolean }>(platform, term, "export_file", {
+        const result = await call_privileged_capability<{ exported: boolean }>(kernel, term, "export_file", privilege_reason, {
             name: file_name_from_path(file_path),
             data_base64: bytes_to_base64(file_bytes),
         });
@@ -44,4 +41,6 @@ export default {
         term.writeln(result.exported ? "Saved." : "Save cancelled.");
         return result.exported ? 0 : 1;
     }
-} as Program;
+} as Program<{kernel_funcs: typeof kernel_funcs}>;
+
+export const kernel_funcs = privileged_capability_kernel_funcs(["export_file"]);

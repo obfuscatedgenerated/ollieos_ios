@@ -16,7 +16,7 @@ export default {
             "level": "Brightness from 1 to 100, which also turns it on."
         }
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     completion: async () => ["on", "off", "toggle"],
     main: async (data) => {
         const {kernel, term, args} = data;

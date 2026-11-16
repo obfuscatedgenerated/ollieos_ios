@@ -1,6 +1,6 @@
 import type {Program} from "ollieos/src/types";
 import {ANSI} from "ollieos/src/lib/ansi";
-import {call_capability, require_privileged_capability, write_error} from "./platform_helpers";
+import {call_privileged_capability, privileged_capability_kernel_funcs, write_error} from "./platform_helpers";
 
 interface CalendarEvent {
     title: string | null;
@@ -32,7 +32,7 @@ export default {
             "add": "Add an event. start and end are dates like 2026-11-20T14:00 (end defaults to an hour later)."
         }
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     completion: async () => ["add"],
     main: async (data) => {
         const {kernel, term, args} = data;
@@ -47,12 +47,9 @@ export default {
                 return 1;
             }
 
-            const platform = await require_privileged_capability(kernel, term, "calendar_add", `Add "${title}" to your calendar`);
-            if (!platform) {
-                return 1;
-            }
+            const privilege_reason = `Add "${title}" to your calendar`;
 
-            const result = await call_capability(platform, term, "calendar_add", {
+            const result = await call_privileged_capability(kernel, term, "calendar_add", privilege_reason, {
                 title,
                 start: start.toISOString(),
                 end: end?.toISOString(),
@@ -71,12 +68,9 @@ export default {
             return 1;
         }
 
-        const platform = await require_privileged_capability(kernel, term, "calendar_events", "Read your calendar");
-        if (!platform) {
-            return 1;
-        }
+        const privilege_reason = "Read your calendar";
 
-        const result = await call_capability<{ events: CalendarEvent[] }>(platform, term, "calendar_events", {days});
+        const result = await call_privileged_capability<{ events: CalendarEvent[] }>(kernel, term, "calendar_events", privilege_reason, {days});
         if (!result) {
             return 1;
         }
@@ -93,4 +87,6 @@ export default {
 
         return 0;
     }
-} as Program;
+} as Program<{kernel_funcs: typeof kernel_funcs}>;
+
+export const kernel_funcs = privileged_capability_kernel_funcs(["calendar_add", "calendar_events"]);

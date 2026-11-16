@@ -1,9 +1,16 @@
-import type {Kernel, UserspaceKernel} from "ollieos/src/kernel";
-import type {AbstractPlatformAPI, UserspacePlatformAPI} from "ollieos/src/kernel/platform";
+import type {UserspaceKernel} from "ollieos/src/kernel";
+import type {UserspacePlatformAPI} from "ollieos/src/kernel/platform";
 import type {UserspaceTerminal} from "ollieos/src/kernel/term_ctl";
+import type {Remote} from "ollieos/src/kernel/rpc";
+import type {KernelFuncData} from "ollieos/src/types";
 import {ANSI} from "ollieos/src/lib/ansi";
 
-export const write_error = (term: UserspaceTerminal, message: string): void => {
+interface PrivilegedCapabilityCall {
+    capability_name: string;
+    args?: unknown;
+}
+
+export const write_error = (term: Remote<UserspaceTerminal>, message: string): void => {
     term.writeln(`${ANSI.PREFABS.error}${message}${ANSI.STYLE.reset_all}`);
 };
 
@@ -14,7 +21,7 @@ export const describe_error = (error: unknown): string => {
 /**
  * Gets the userspace platform API if it supports the capability, otherwise explains why not.
  */
-export const require_capability = (kernel: UserspaceKernel, term: UserspaceTerminal, capability_name: string): UserspacePlatformAPI | null => {
+export const require_capability = (kernel: Remote<UserspaceKernel>, term: Remote<UserspaceTerminal>, capability_name: string): Remote<UserspacePlatformAPI> | null => {
     const platform = kernel.get_platform();
     if (!platform?.supports(capability_name)) {
         write_error(term, `This needs the "${capability_name}" platform capability, which isn't available here.`);
@@ -25,28 +32,50 @@ export const require_capability = (kernel: UserspaceKernel, term: UserspaceTermi
 };
 
 /**
- * Requests privileges (if not already privileged) and returns the full platform API for a privileged capability.
+ * Calls a privileged capability through the program's own kernel func (see {@link privileged_capability_kernel_funcs}), which asks the user first.
+ * Writes any error or refusal to the terminal.
+ * @returns The result, or null if the capability isn't available, the request was refused or the call failed.
  */
-export const require_privileged_capability = async (kernel: UserspaceKernel, term: UserspaceTerminal, capability_name: string, reason: string): Promise<AbstractPlatformAPI | null> => {
+export const call_privileged_capability = async <Result>(kernel: Remote<UserspaceKernel>, term: Remote<UserspaceTerminal>, capability_name: string, reason: string, args?: unknown): Promise<Result | null> => {
     if (!kernel.get_platform()?.supports(capability_name)) {
         write_error(term, `This needs the "${capability_name}" platform capability, which isn't available here.`);
         return null;
     }
 
-    const privileged_kernel = kernel.privileged ? kernel as unknown as Kernel : await kernel.request_privilege(reason);
-    if (!privileged_kernel) {
-        write_error(term, "Privilege request denied.");
+    try {
+        const call: PrivilegedCapabilityCall = {capability_name, args};
+        return await kernel.request_kernel_func("call_privileged_capability", reason, call) as Result;
+    } catch (error) {
+        write_error(term, (error as Error).name === "NotAllowedError" ? "Privilege request denied." : describe_error(error));
         return null;
     }
-
-    return privileged_kernel.get_platform();
 };
+
+/**
+ * The kernel funcs a program needs to call privileged capabilities. Export the result as the program's kernel_funcs.
+ * @param allowed_capabilities The only capabilities a granted request can call, so it can't be used for anything else.
+ */
+export const privileged_capability_kernel_funcs = (allowed_capabilities: readonly string[]) => ({
+    call_privileged_capability: async ({kernel}: KernelFuncData, input: PrivilegedCapabilityCall): Promise<unknown> => {
+        // input comes from userspace, so nothing about it is assumed
+        if (typeof input?.capability_name !== "string" || !allowed_capabilities.includes(input.capability_name)) {
+            throw new Error("This program can't call that platform capability.");
+        }
+
+        const platform = kernel.get_platform();
+        if (!platform) {
+            throw new Error("No platform API is available.");
+        }
+
+        return await platform.call(input.capability_name, input.args);
+    },
+});
 
 /**
  * Calls a capability, writing any error to the terminal.
  * @returns The result, or null if the call failed.
  */
-export const call_capability = async <Result>(platform: UserspacePlatformAPI | AbstractPlatformAPI, term: UserspaceTerminal, capability_name: string, args?: unknown): Promise<Result | null> => {
+export const call_capability = async <Result>(platform: Remote<UserspacePlatformAPI>, term: Remote<UserspaceTerminal>, capability_name: string, args?: unknown): Promise<Result | null> => {
     try {
         return await platform.call(capability_name, args) as Result;
     } catch (error) {

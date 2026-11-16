@@ -14,6 +14,7 @@ module.exports = (env) => ({
     entry: {
         main: path.resolve(__dirname, "src/index.ts"),
         fsedit: path.join(upstream_dir, "src/fsedit/index.ts"),
+        isothread_worker: path.join(upstream_dir, "src/isothread_impl/web_worker/worker.ts"),
     },
     module: {
         rules: [

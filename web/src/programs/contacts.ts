@@ -1,6 +1,6 @@
 import type {Program} from "ollieos/src/types";
 import {ANSI} from "ollieos/src/lib/ansi";
-import {call_capability, require_privileged_capability} from "./platform_helpers";
+import {call_privileged_capability, privileged_capability_kernel_funcs} from "./platform_helpers";
 
 interface Contact {
     given_name: string;
@@ -19,18 +19,15 @@ export default {
             "search": "Only show contacts whose name, number or email contains this."
         }
     },
-    compat: "2.0.0",
+    compat: "3.0.0",
     completion: async () => [],
     main: async (data) => {
         const {kernel, term, args} = data;
         const {FG, STYLE} = ANSI;
 
-        const platform = await require_privileged_capability(kernel, term, "contacts", "Read your contacts");
-        if (!platform) {
-            return 1;
-        }
+        const privilege_reason = "Read your contacts";
 
-        const result = await call_capability<{ contacts: Contact[] }>(platform, term, "contacts");
+        const result = await call_privileged_capability<{ contacts: Contact[] }>(kernel, term, "contacts", privilege_reason);
         if (!result) {
             return 1;
         }
@@ -56,4 +53,6 @@ export default {
 
         return 0;
     }
-} as Program;
+} as Program<{kernel_funcs: typeof kernel_funcs}>;
+
+export const kernel_funcs = privileged_capability_kernel_funcs(["contacts"]);
