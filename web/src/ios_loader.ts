@@ -66,6 +66,13 @@ export const boot_ios = async (on_init_spawned?: (kernel: Kernel) => Promise<voi
         await fs.write_file(PRIVILEGE_AGENT_PATH, IOS_PRIVILEGE_AGENT_NAME);
     }
 
+    // move the old localStorage reader setting into the fs, where reader and ash now keep it
+    const old_reader_setting = localStorage.getItem("reader");
+    if (old_reader_setting !== null) {
+        await fs.write_file("/etc/reader", old_reader_setting, true);
+        localStorage.removeItem("reader");
+    }
+
     const wm = new DOMWindowManager();
     const net_manager = new PorterBridgeNetworkManager();
 
@@ -88,7 +95,7 @@ export const boot_ios = async (on_init_spawned?: (kernel: Kernel) => Promise<voi
     fit.fit();
 
     if (window.innerWidth < 600) {
-        const wrapped = word_wrap(`${ANSI.BG.red + ANSI.FG.white}Warning: The screen that the terminal is running on is rather small!${NEWLINE + NEWLINE}Some programs may not display correctly, consider using a larger screen such as a computer or tablet.${NEWLINE + NEWLINE}An alternative interface is in the works. You can also use the command "legacy" to view the old (outdated) site.${ANSI.STYLE.reset_all}`, term.cols);
+        const wrapped = word_wrap(`${ANSI.BG.red + ANSI.FG.white}Warning: The screen that the terminal is running on is rather small!${NEWLINE + NEWLINE}Some programs may not display correctly, consider using a larger screen such as a computer or tablet.${NEWLINE + NEWLINE}An alternative interface is in the works.${ANSI.STYLE.reset_all}`, term.cols);
         term.writeln(wrapped);
     }
 
