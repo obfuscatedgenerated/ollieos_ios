@@ -35,16 +35,7 @@ export const boot_ios = async (on_init_spawned?: (kernel: Kernel) => Promise<voi
         fs = new LocalStorageFS();
     }
 
-    if (!(await fs.is_ready())) {
-        await new Promise<void>((resolve) => {
-            const interval = setInterval(async () => {
-                if (await fs.is_ready()) {
-                    clearInterval(interval);
-                    resolve();
-                }
-            }, 10);
-        });
-    }
+    await fs.wait_until_initialised();
 
     // construct virtual programs (inline kernel funcs) from upstream's built-ins, then the app's own
     const builtin_programs: Record<string, Program> = {};
